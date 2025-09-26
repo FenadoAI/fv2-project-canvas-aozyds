@@ -12,9 +12,13 @@ import {
   TrendingUp,
   Clock,
   ExternalLink,
-  Lightbulb
+  Lightbulb,
+  Filter,
+  Grid3X3
 } from 'lucide-react';
 import axios from 'axios';
+import TopicChips from './TopicChips';
+import TopicTiles from './TopicTiles';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const API = `${API_BASE}/api`;
@@ -24,22 +28,28 @@ const IdeaGenerator = () => {
   const [popularIdeas, setPopularIdeas] = useState([]);
   const [recentIdeas, setRecentIdeas] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [view, setView] = useState('generate'); // 'generate', 'popular', 'recent'
+  const [view, setView] = useState('generate'); // 'generate', 'popular', 'recent', 'explore'
+  const [selectedTopics, setSelectedTopics] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [topicViewMode, setTopicViewMode] = useState('chips'); // 'chips' or 'tiles'
 
   useEffect(() => {
     loadPopularIdeas();
     loadRecentIdeas();
   }, []);
 
-  const generateNewIdea = async () => {
+  const generateNewIdea = async (specificTopic = null) => {
     setLoading(true);
     try {
-      const response = await axios.post(`${API}/ideas/generate`);
+      const requestBody = specificTopic ? { topic: specificTopic } : {};
+      const response = await axios.post(`${API}/ideas/generate`, requestBody);
       if (response.data.success) {
         setCurrentIdea(response.data.idea);
         toast({
           title: "New idea generated!",
-          description: "A fresh website idea has been created for you.",
+          description: specificTopic
+            ? `Generated idea for ${specificTopic}`
+            : "A fresh website idea has been created for you.",
         });
       } else {
         toast({
@@ -58,6 +68,33 @@ const IdeaGenerator = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleTopicSelect = (topic) => {
+    if (topic === null) {
+      // Clear all selected topics
+      setSelectedTopics([]);
+      return;
+    }
+
+    if (selectedTopics.includes(topic)) {
+      setSelectedTopics(prev => prev.filter(t => t !== topic));
+    } else {
+      setSelectedTopics(prev => [...prev, topic]);
+    }
+  };
+
+  const handleCategorySelect = (category) => {
+    if (selectedCategory === category) {
+      setSelectedCategory(null);
+    } else {
+      setSelectedCategory(category);
+    }
+  };
+
+  const generateIdeaForTopic = (topic) => {
+    generateNewIdea(topic);
+    setView('generate');
   };
 
   const upvoteIdea = async (ideaId) => {
@@ -240,6 +277,14 @@ const IdeaGenerator = () => {
               Generate
             </Button>
             <Button
+              variant={view === 'explore' ? 'default' : 'ghost'}
+              onClick={() => setView('explore')}
+              className="rounded-full"
+            >
+              <Filter className="w-4 h-4 mr-2" />
+              Explore
+            </Button>
+            <Button
               variant={view === 'popular' ? 'default' : 'ghost'}
               onClick={() => setView('popular')}
               className="rounded-full"
@@ -259,6 +304,65 @@ const IdeaGenerator = () => {
         </div>
 
         {/* Main Content */}
+        {view === 'explore' && (
+          <div className="space-y-8">
+            {/* Topic View Mode Toggle */}
+            <div className="flex justify-center">
+              <div className="flex gap-1 p-1 bg-white rounded-full shadow-sm border">
+                <Button
+                  variant={topicViewMode === 'chips' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setTopicViewMode('chips')}
+                  className="rounded-full px-4"
+                >
+                  <Filter className="w-4 h-4 mr-2" />
+                  Quick Filter
+                </Button>
+                <Button
+                  variant={topicViewMode === 'tiles' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setTopicViewMode('tiles')}
+                  className="rounded-full px-4"
+                >
+                  <Grid3X3 className="w-4 h-4 mr-2" />
+                  Detailed View
+                </Button>
+              </div>
+            </div>
+
+            {/* Topic Components */}
+            {topicViewMode === 'chips' ? (
+              <TopicChips
+                selectedTopics={selectedTopics}
+                onTopicSelect={handleTopicSelect}
+                className="max-w-5xl mx-auto"
+              />
+            ) : (
+              <TopicTiles
+                selectedCategory={selectedCategory}
+                onCategorySelect={handleCategorySelect}
+                onTopicSelect={generateIdeaForTopic}
+                className="max-w-6xl mx-auto"
+              />
+            )}
+
+            {/* Generate Button for Selected Topics */}
+            {selectedTopics.length > 0 && (
+              <div className="text-center">
+                <Button
+                  onClick={() => generateIdeaForTopic(selectedTopics[Math.floor(Math.random() * selectedTopics.length)])}
+                  disabled={loading}
+                  size="lg"
+                  className="px-8 py-4 text-lg rounded-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 shadow-lg hover:shadow-xl transition-all duration-200"
+                >
+                  <Sparkles className="w-6 h-6 mr-2" />
+                  {loading ? 'Generating...' : `Generate Idea from Selected Topics`}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
         {view === 'generate' && (
           <div className="space-y-8">
             {/* Generate Button */}

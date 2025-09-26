@@ -64,8 +64,8 @@ FAMOUS_SITES = [
 ]
 
 
-def generate_idea():
-    topic = random.choice(TOPICS)
+def generate_idea(specific_topic=None):
+    topic = specific_topic if specific_topic and specific_topic in TOPICS else random.choice(TOPICS)
     theme = random.choice(THEMES)
     template = random.choice(TEMPLATES)
     famous_site = random.choice(FAMOUS_SITES)
@@ -145,6 +145,9 @@ class WebsiteIdea(BaseModel):
     upvotes: int = 0
     share_url: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class GenerateIdeaRequest(BaseModel):
+    topic: Optional[str] = None
 
 
 class IdeaResponse(BaseModel):
@@ -288,12 +291,30 @@ async def get_agent_capabilities():
         }
 
 
+# Add endpoint to get available topics and themes
+@api_router.get("/ideas/topics")
+async def get_available_topics():
+    try:
+        return {
+            "success": True,
+            "topics": TOPICS,
+            "themes": THEMES,
+            "famous_sites": FAMOUS_SITES
+        }
+    except Exception as e:
+        logger.error(f"Error getting topics: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
 # Website Idea Generator Routes
 @api_router.post("/ideas/generate", response_model=IdeaResponse)
-async def generate_website_idea():
+async def generate_website_idea(request: Optional[GenerateIdeaRequest] = None):
     try:
-        # Generate new idea
-        idea_data = generate_idea()
+        # Generate new idea with optional specific topic
+        specific_topic = request.topic if request else None
+        idea_data = generate_idea(specific_topic)
 
         # Create WebsiteIdea object
         idea = WebsiteIdea(**idea_data)
